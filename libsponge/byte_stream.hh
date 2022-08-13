@@ -17,7 +17,17 @@ class ByteStream {
     // that's a sign that you probably want to keep exploring
     // different approaches.
 
+    std::string _bytes;
+    size_t _capacity;
+    size_t _read_index;
+    size_t _write_index;
+    size_t _read;
+    size_t _written;
+    bool _input_ended;
     bool _error{};  //!< Flag indicating that the stream suffered an error.
+
+    // helper function
+    void trimBytes();
 
   public:
     //! Construct a stream with room for `capacity` bytes.
