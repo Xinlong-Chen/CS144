@@ -4,9 +4,8 @@
 #include "byte_stream.hh"
 
 #include <cstdint>
-#include <string>
 #include <set>
-
+#include <string>
 
 //! \brief A class that assembles a series of excerpts from a byte stream (possibly out of order,
 //! possibly overlapping) into an in-order byte stream.
@@ -16,8 +15,8 @@ class StreamReassembler {
 
     ByteStream _output;  //!< The reassembled in-order byte stream
     size_t _capacity;    //!< The maximum number of bytes
-    
-    std::set<std::pair<size_t, size_t>> _vis; // [begin_index, end_index)
+
+    std::set<std::pair<size_t, size_t>> _vis;  // [begin_index, end_index)
     std::string _buffer;
     size_t _assembled;
     bool _eof;

@@ -10,18 +10,19 @@
 // You will need to add private members to the class declaration in `byte_stream.hh`
 
 template <typename... Targs>
-void DUMMY_CODE(Targs &&... /* unused */) {}
+void DUMMY_CODE(Targs &&.../* unused */) {}
 
 using namespace std;
 
-ByteStream::ByteStream(const size_t capacity) : _bytes(string{}),
-                                                _capacity(capacity),
-                                                _read_index(0),
-                                                _write_index(0),
-                                                _read(0),
-                                                _written(0),
-                                                _input_ended(false),
-                                                _error(false) {
+ByteStream::ByteStream(const size_t capacity)
+    : _bytes(string{})
+    , _capacity(capacity)
+    , _read_index(0)
+    , _write_index(0)
+    , _read(0)
+    , _written(0)
+    , _input_ended(false)
+    , _error(false) {
     if (_capacity == 0) {
         cerr << "capacity can't is 0" << endl;
         exit(0);
@@ -84,7 +85,10 @@ size_t ByteStream::bytes_written() const { return _written; }
 
 size_t ByteStream::bytes_read() const { return _read; }
 
-size_t ByteStream::remaining_capacity() const { return _capacity - (_write_index - _read_index);; }
+size_t ByteStream::remaining_capacity() const {
+    return _capacity - (_write_index - _read_index);
+    ;
+}
 
 void ByteStream::trimBytes() {
     if (_bytes.length() > static_cast<size_t>(ceil(1.5 * _capacity))) {
