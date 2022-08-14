@@ -1,5 +1,6 @@
 #include "wrapping_integers.hh"
 
+#include <iostream>
 // Dummy implementation of a 32-bit wrapping integer
 
 // For Lab 2, please replace with a real implementation that passes the
@@ -8,7 +9,7 @@
 template <typename... Targs>
 void DUMMY_CODE(Targs &&.../* unused */) {}
 
-#define UINT32_MOD (1ul << 32)
+#define UINT32_MOD (static_cast<uint64_t>(UINT32_MAX) + 1)
 
 using namespace std;
 
@@ -31,15 +32,11 @@ WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) {
 //! and the other stream runs from the remote TCPSender to the local TCPReceiver and
 //! has a different ISN.
 uint64_t unwrap(WrappingInt32 n, WrappingInt32 isn, uint64_t checkpoint) {
-    uint64_t abs = n - isn;
-    if (checkpoint <= abs) {
-        return abs;
-    } else {
-        uint64_t quotient = (checkpoint - abs) >> 32;
-        uint64_t remainder = ((checkpoint - abs) << 32) >> 32;
-        if (remainder < UINT32_MOD / 2) {
-            return abs + quotient * UINT32_MOD;
-        }
-        return abs + (quotient + 1) * UINT32_MOD;
+    uint32_t offset = n - isn;
+    if (checkpoint <= offset) {
+        return offset;
     }
+    uint64_t real_checkpoint = (checkpoint - offset) + (UINT32_MOD >> 1);
+    uint64_t wrap_num = real_checkpoint / UINT32_MOD;
+    return wrap_num * UINT32_MOD + offset;
 }
