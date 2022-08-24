@@ -21,6 +21,15 @@ class TCPConnection {
     //! in case the remote TCPConnection doesn't know we've received its whole stream?
     bool _linger_after_streams_finish{true};
 
+    size_t _time_since_last_segment_received{0};
+    bool   _active{true};
+
+    void send_TCPSegments();
+    inline void is_end();
+    inline void reset_connection();
+    inline void send_rst();
+    inline void close_connection();
+
   public:
     //! \name "Input" interface for the writer
     //!@{
@@ -33,7 +42,7 @@ class TCPConnection {
     size_t write(const std::string &data);
 
     //! \returns the number of `bytes` that can be written right now.
-    size_t remaining_outbound_capacity() const;
+    size_t remaining_outbound_capacity() const { return _sender.stream_in().buffer_size(); }
 
     //! \brief Shut down the outbound byte stream (still allows reading incoming data)
     void end_input_stream();
@@ -50,11 +59,11 @@ class TCPConnection {
 
     //!@{
     //! \brief number of bytes sent and not yet acknowledged, counting SYN/FIN each as one byte
-    size_t bytes_in_flight() const;
+    size_t bytes_in_flight() const { return _sender.bytes_in_flight(); }
     //! \brief number of bytes not yet reassembled
-    size_t unassembled_bytes() const;
+    size_t unassembled_bytes() const { return _receiver.unassembled_bytes(); }
     //! \brief Number of milliseconds since the last segment was received
-    size_t time_since_last_segment_received() const;
+    size_t time_since_last_segment_received() const { return _time_since_last_segment_received; }
     //!< \brief summarize the state of the sender, receiver, and the connection
     TCPState state() const { return {_sender, _receiver, active(), _linger_after_streams_finish}; };
     //!@}
@@ -77,7 +86,7 @@ class TCPConnection {
     //! \brief Is the connection still alive in any way?
     //! \returns `true` if either stream is still running or if the TCPConnection is lingering
     //! after both streams have finished (e.g. to ACK retransmissions from the peer)
-    bool active() const;
+    bool active() const { return _active; }
     //!@}
 
     //! Construct a new connection from a configuration
