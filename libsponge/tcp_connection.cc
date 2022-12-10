@@ -32,14 +32,29 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
         return;  // don't need to deal with ack
     }
 
+    // cerr << "_sender.next_seqno_absolute(): " << _sender.next_seqno_absolute() << endl;
     // handle ack which I have sent (also 3-way-handshake, step 3, 4-way handshake, step 3)
-    if (seg.header().ack && _sender.next_seqno_absolute() > 0) {
+    if (seg.header().ack) {
         _sender.ack_received(seg.header().ackno, seg.header().win);  // maybe fill_windows here
     }
 
     // recieve FIN (4-way handshake, step 2)
     if (seg.header().fin && _sender.next_seqno_absolute() < _sender.stream_in().bytes_written() + 2) {
         _sender.fill_window();
+    }
+
+    // 判断 TCP 断开连接时是否时需要等待
+    // CLOSE_WAIT
+    if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::FIN_RECV &&
+        TCPState::state_summary(_sender) == TCPSenderStateSummary::SYN_ACKED)
+        _linger_after_streams_finish = false;
+
+    // 如果到了准备断开连接的时候。服务器端先断
+    // CLOSED
+    if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::FIN_RECV &&
+        TCPState::state_summary(_sender) == TCPSenderStateSummary::FIN_ACKED && !_linger_after_streams_finish) {
+        _active = false;
+        return;
     }
 
     bool send_empty = false;
@@ -73,7 +88,12 @@ size_t TCPConnection::write(const string &data) {
 
 //! \param[in] ms_since_last_tick number of milliseconds since the last call to this method
 void TCPConnection::tick(const size_t ms_since_last_tick) {
+    if (ms_since_last_tick == 0) {
+        return;
+    }
+
     _time_since_last_segment_received += ms_since_last_tick;
+    // cerr << "TIME NOW:" << _time_since_last_segment_received << " TIME PASS: " << ms_since_last_tick << endl;
 
     _sender.tick(ms_since_last_tick);
     if (_sender.consecutive_retransmissions() > _cfg.MAX_RETX_ATTEMPTS) {
@@ -83,10 +103,18 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
 
     // send ack with timer
     send_TCPSegments();
+
+    // 如果处于 TIME_WAIT 状态并且超时，则可以静默关闭连接
+    if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::FIN_RECV &&
+        TCPState::state_summary(_sender) == TCPSenderStateSummary::FIN_ACKED && _linger_after_streams_finish &&
+        _time_since_last_segment_received >= 10 * _cfg.rt_timeout) {
+        _active = false;
+        _linger_after_streams_finish = false;
+    }
 }
 
 void TCPConnection::end_input_stream() {  // (4-way handshake, step 1)
-    _sender.stream_in().set_error(), _sender.stream_in().end_input();
+    _sender.stream_in().end_input();
     _sender.fill_window();  // fill with FIN
     send_TCPSegments();
 }
@@ -124,29 +152,9 @@ void TCPConnection::send_TCPSegments() {
         _segments_out.push(segment);
     }
 
-    is_end();
 }
 
-void TCPConnection::is_end() {
-    // If the inbound stream ends before the TCPConnection has reached EOF
-    // on its outbound stream, this variable needs to be set to false.
-    if (_receiver.stream_out().input_ended() && !_sender.stream_in().eof()) {
-        _linger_after_streams_finish = false;
-    }
-
-    // 1. The inbound stream has been fully assembled and has ended
-    // 2. The outbound stream has been ended by the local application and fully sent
-    //    (including the fact that it ended, i.e. a segment with fin ) to the remote peer.
-    // 3. The outbound stream has been fully acknowledged by the remote peer.
-    if (_receiver.unassembled_bytes() == 0 &&
-        (_sender.stream_in().input_ended() &&
-         (_sender.next_seqno_absolute() == _sender.stream_in().bytes_written() + 2)) &&
-        bytes_in_flight() == 0) {
-        if (!_linger_after_streams_finish || _time_since_last_segment_received >= 10 * _cfg.rt_timeout) {
-            _active = false;
-        }
-    }
-}
+void TCPConnection::is_end() { }
 
 void TCPConnection::reset_connection() {
     close_connection();

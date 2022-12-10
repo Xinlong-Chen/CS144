@@ -1,5 +1,7 @@
 #include "tcp_receiver.hh"
 
+#include <iostream>
+
 // Dummy implementation of a TCP receiver
 
 // For Lab 2, please replace with a real implementation that passes the
@@ -42,4 +44,6 @@ optional<WrappingInt32> TCPReceiver::ackno() const {
     return wrap(ack_no, _isn);
 }
 
-size_t TCPReceiver::window_size() const { return _capacity - _reassembler.stream_out().buffer_size(); }
+size_t TCPReceiver::window_size() const { 
+    return (_reassembler.stream_out().bytes_read() + _capacity) - _reassembler.stream_out().bytes_written();
+}

@@ -8,6 +8,7 @@
 
 #include <functional>
 #include <queue>
+#include <iostream>
 
 //! \brief The "sender" part of a TCP implementation.
 

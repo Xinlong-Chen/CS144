@@ -42,7 +42,7 @@ class TCPConnection {
     size_t write(const std::string &data);
 
     //! \returns the number of `bytes` that can be written right now.
-    size_t remaining_outbound_capacity() const { return _sender.stream_in().buffer_size(); }
+    size_t remaining_outbound_capacity() const { return _sender.stream_in().remaining_capacity(); }
 
     //! \brief Shut down the outbound byte stream (still allows reading incoming data)
     void end_input_stream();

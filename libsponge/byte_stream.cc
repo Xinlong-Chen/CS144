@@ -87,7 +87,6 @@ size_t ByteStream::bytes_read() const { return _read; }
 
 size_t ByteStream::remaining_capacity() const {
     return _capacity - (_write_index - _read_index);
-    ;
 }
 
 void ByteStream::trimBytes() {

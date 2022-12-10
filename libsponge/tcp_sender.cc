@@ -21,11 +21,12 @@ using namespace std;
 TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const std::optional<WrappingInt32> fixed_isn)
     : _isn(fixed_isn.value_or(WrappingInt32{random_device()()}))
     , _initial_retransmission_timeout{retx_timeout}
-    , _stream(capacity) {
+    , _stream(capacity) { 
     _timer.reset_all(retx_timeout);
 }
 
 void TCPSender::fill_window() {
+    // cerr << "fill_window: " << _fin << " " << _stream.buffer_size() << endl;
     if (_fin) {  // eof
         return;
     }
@@ -44,11 +45,13 @@ void TCPSender::fill_window() {
     }
 
     TCPSegment segment;
+    // cerr << "buffer size: " << _stream.buffer_size() << endl;
+    // cout << "num: " << _recv_seqno + window_size << " > " << _next_seqno << endl;
     while (!_stream.buffer_empty() && _recv_seqno + window_size > _next_seqno) {
         size_t send_size =
             min(TCPConfig::MAX_PAYLOAD_SIZE, static_cast<size_t>(window_size - (_next_seqno - _recv_seqno)));
+        // cout << "send_size: " << send_size << endl;
         segment.payload() = _stream.read(min(send_size, _stream.buffer_size()));
-
         if (_stream.eof() && segment.length_in_sequence_space() < window_size) {
             segment.header().fin = true;
             _fin = true;
@@ -67,6 +70,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     }
     _recv_seqno = ack_no;
     _receiver_window_size = window_size;
+    const uint16_t window_size_tmp = window_size > 0 ? window_size : 1;
 
     // bool is_pop = false;
 
@@ -83,7 +87,8 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         _timer.reset_all(_initial_retransmission_timeout);
     }
 
-    if (_next_seqno - _recv_seqno < _receiver_window_size) {
+    // cerr << "ack received: " << ack_no << " | " << _next_seqno - _recv_seqno << " < " << window_size_tmp << endl;
+    if (_next_seqno - _recv_seqno < window_size_tmp) {
         fill_window();
     }
 
@@ -116,6 +121,11 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
             _timer.reset(false);
             _timer.start();
         } 
+    }
+
+    if (_segments_waiting.empty()) {
+        _timer.reset(false);
+        _timer.start();
     }
 }
 
